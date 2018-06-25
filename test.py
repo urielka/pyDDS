@@ -26,7 +26,9 @@ topics = []
 # topics.append((d.get_topic('t8', l.FinderMessageList), lambda: dict(messages2d=[dict(objectid=random.randrange(2**30), u=random.randrange(2**30), v=random.randrange(2**30), scale=random.gauss(0, 1), angle=random.gauss(1, 1)) for i in xrange(random.randrange(10))], messages3d=[dict(objectid=random.randrange(2**30), x=random.gauss(0, 1), y=random.gauss(0, 1), z=random.gauss(0, 1), ang1=random.gauss(0, 1), ang2=random.gauss(0, 1), ang3=random.gauss(0, 1)) for i in xrange(random.randrange(10))], cameraid=random.randrange(10))))
 
 # xml example
-topics.append((d.get_topic('txml', l.Sensor), lambda: dict(sensorID=random.randrange(2**30), measuredValue = random.gauss(0,1)) ))
+
+topics.append((d.get_topic('txml', l.Sensor), lambda: dict(sensorID=random.randrange(2**30), measuredValue = random.gauss(0,1), tag = random.sample(["hot", "cold"],1)[0])))
+
 
 if recv:
     while True:
@@ -34,15 +36,15 @@ if recv:
         t, mf = random.choice(topics)
         try:
             msg = t.recv()
-        except dds.Error, e:
-            if e.message == 'no data':
+        except dds.Error as e:
+            if str(e) == 'no data':
                 continue
             raise
-        print "Received %r on %s" % (msg, t.name)
+        print("Received %r on %s" % (msg, t.name))
 else:
     while True:
         t, mf = random.choice(topics)
         msg = mf()
-        print "Sending %r on %s" % (msg, t.name)
+        print("Sending %r on %s" % (msg, t.name))
         t.send(msg)
         time.sleep(.1)

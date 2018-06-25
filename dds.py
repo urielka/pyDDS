@@ -10,6 +10,23 @@ _ddscore_lib = ctypes.CDLL(lpath, ctypes.RTLD_GLOBAL)
 
 _ddsc_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', arch_str, 'libnddsc.so'))
 
+
+# Python 3 has bytes and str, calling ctypes requires bytes and returns bytes
+# the following functions deal with this conversion
+if sys.version_info >= (3, 0):
+    def cstring(s):
+        if isinstance(s, str):
+            return bytes(s, 'ascii')
+        elif isinstance(s ,bytes):
+            return s
+        else:
+            raise ArgumentException("%s is not a string" % s)
+
+    def pstring(b):
+        return str(b, 'ascii')
+else:
+    pstring = cstring = lambda x: x
+
 # Error checkers
 
 class Error(Exception):
@@ -62,11 +79,13 @@ def check_true(result, func, arguments):
 def get(name, type):
     return ctypes.cast(getattr(_ddsc_lib, 'DDS_' + name), ctypes.POINTER(type)).contents
 
-@apply
+
+
 class DDSFunc(object):
     pass
 
-@apply
+DDSFunc = DDSFunc()
+
 class DDSType(object):
     def __getattr__(self, attr):
         contents = type(attr, (ctypes.Structure,), {})
@@ -84,6 +103,8 @@ class DDSType(object):
         
         setattr(self, attr, contents)
         return contents
+
+DDSType = DDSType()
 
 DDSType.Topic._fields_ = [
     ('_as_Entity', ctypes.c_void_p),
@@ -226,14 +247,17 @@ _dyn_basic_types = {
     TCKind.CHAR: ('char', DDS_Char, None),
     TCKind.WCHAR: ('wchar', DDS_Wchar, None),
 }
-def _define_func((p, errcheck, restype, argtypes)):
+
+def _define_func(params):
+    p, errcheck, restype, argtypes = params
     f = getattr(_ddsc_lib, 'DDS_' + p)
     if errcheck is not None:
         f.errcheck = errcheck
     f.restype = restype
     f.argtypes = argtypes
     setattr(DDSFunc, p, f)
-map(_define_func, [
+
+list(map(_define_func, [
     ('DomainParticipantFactory_get_instance', check_null, ctypes.POINTER(DDSType.DomainParticipantFactory), []),
     ('DomainParticipantFactory_create_participant', check_null, ctypes.POINTER(DDSType.DomainParticipant), [ctypes.POINTER(DDSType.DomainParticipantFactory), DDS_DomainId_t, ctypes.POINTER(DDSType.DomainParticipantQos), ctypes.POINTER(DDSType.DomainParticipantListener), DDS_StatusMask]),
     ('DomainParticipantFactory_delete_participant', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.POINTER(DDSType.DomainParticipant)]),
@@ -264,10 +288,10 @@ map(_define_func, [
     ('DynamicData_new', check_null, ctypes.POINTER(DDSType.DynamicData), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDSType.DynamicDataProperty_t)]),
 ] + [
     ('DynamicData_get_' + func_name, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(data_type), ctypes.c_char_p, DDS_DynamicDataMemberId])
-        for func_name, data_type, bounds in _dyn_basic_types.itervalues()
+        for func_name, data_type, bounds in _dyn_basic_types.values()
 ] + [
     ('DynamicData_set_' + func_name, check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, data_type])
-        for func_name, data_type, bounds  in _dyn_basic_types.itervalues()
+        for func_name, data_type, bounds  in _dyn_basic_types.values()
 ] + [
     ('DynamicData_get_string', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(DDS_UnsignedLong), ctypes.c_char_p, DDS_DynamicDataMemberId]),
     ('DynamicData_get_wstring', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_wchar_p), ctypes.POINTER(DDS_UnsignedLong), ctypes.c_char_p, DDS_DynamicDataMemberId]),
@@ -305,9 +329,11 @@ map(_define_func, [
     ('String_free', None, None, [ctypes.c_char_p]),
     
     ('Wstring_free', None, None, [ctypes.c_wchar_p]),
-])
+]))
 
 def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED):
+    member_name = cstring(member_name)
+
     tc = ctypes.POINTER(DDSType.TypeCode)()
     dd.get_member_type(ctypes.byref(tc), member_name, member_id, ex())
     
@@ -330,7 +356,7 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_M
     elif kind == TCKind.STRING:
         if '\0' in obj:
             raise ValueError('strings can not contain null characters')
-        dd.set_string(member_name, member_id, obj)
+        dd.set_string(member_name, member_id, cstring(obj))
     elif kind == TCKind.WSTRING:
         dd.set_wstring(member_name, member_id, obj)
     else:
@@ -341,8 +367,8 @@ def write_into_dd(obj, dd):
     if kind == TCKind.STRUCT:
         assert isinstance(obj, dict)
         tc = dd.get_type()
-        for i in xrange(tc.member_count(ex())):
-            name = tc.member_name(i, ex())
+        for i in range(tc.member_count(ex())):
+            name = pstring(tc.member_name(i, ex()))
             write_into_dd_member(obj[name], dd, member_name=name)
     elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
         assert isinstance(obj, list)
@@ -375,7 +401,7 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
         inner = ctypes.c_char_p(None)
         try:
             dd.get_string(ctypes.byref(inner), None, member_name, member_id)
-            return inner.value
+            return pstring(inner.value)
         finally:
             DDSFunc.String_free(inner)
     elif kind == TCKind.WSTRING:
@@ -393,13 +419,13 @@ def unpack_dd(dd):
     if kind == TCKind.STRUCT:
         obj = {}
         tc = dd.get_type()
-        for i in xrange(tc.member_count(ex())):
+        for i in range(tc.member_count(ex())):
             name = tc.member_name(i, ex())
-            obj[name] = unpack_dd_member(dd, member_name=name)
+            obj[pstring(name)] = unpack_dd_member(dd, member_name=name)
         return obj
     elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
         obj = []
-        for i in xrange(dd.get_member_count()):
+        for i in range(dd.get_member_count()):
             obj.append(unpack_dd_member(dd, member_id=i+1))
         return obj
     else:
@@ -418,8 +444,8 @@ class Topic(object):
         self._support.register_type(self._dds._participant, self.data_type.name)
         
         self._topic = topic = self._dds._participant.create_topic(
-            self.name,
-            self.data_type.name,
+            cstring(self.name),
+            cstring(self.data_type.name),
             get('TOPIC_QOS_DEFAULT', DDSType.TopicQos),
             None,
             0,
@@ -480,7 +506,7 @@ class Topic(object):
             self._disable_listener()
     
     def _data_available_callback(self, listener_data, datareader):
-        for cb in self._callbacks.itervalues():
+        for cb in self._callbacks.values():
             cb()
     
     def send(self, msg):
@@ -584,7 +610,7 @@ _ddsc_lib.DDS_TypeCodeFactory_create_tc_from_xml_file.restype = ctypes.POINTER(D
 
 class XMLLibraryType(object):
     def __init__(self, xml_path, name):
-        self._xml_path, self.name = xml_path, name
+        self._xml_path, self.name = cstring(xml_path), cstring(name)
         self._tc = None
         self._tc = self._get_typecode()
         calc_name = _ddsc_lib.DDS_TypeCode_name(self._tc, ex()) 
@@ -596,9 +622,7 @@ class XMLLibraryType(object):
             return self._tc
 
         typecode_factory = _ddsc_lib.DDS_TypeCodeFactory_get_instance()
-
         tc = _ddsc_lib.DDS_TypeCodeFactory_create_tc_from_xml_file(typecode_factory,
          self._xml_path, self.name, None, 1000, 1000, ex()
         )
-
         return tc
