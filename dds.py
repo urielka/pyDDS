@@ -3,8 +3,11 @@ import os
 import sys
 import weakref
 
-arch_str = 'x64Linux2.6gcc4.1.1' if sys.maxsize > 2**32 else 'i86Linux2.6gcc4.1.1'
-_ddscore_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', arch_str, 'libnddscore.so'), ctypes.RTLD_GLOBAL)
+arch_str = 'x64Linux3gcc5.4.0' if sys.maxsize > 2**32 else 'i86Linux2.6gcc4.1.1'
+lpath = os.path.join(os.environ['NDDSHOME'], 'lib', arch_str, 'libnddscore.so')
+
+_ddscore_lib = ctypes.CDLL(lpath, ctypes.RTLD_GLOBAL)
+
 _ddsc_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', arch_str, 'libnddsc.so'))
 
 # Error checkers
@@ -548,9 +551,8 @@ class LibraryType(object):
     def __init__(self, lib, name):
         self._lib, self.name = lib, name
         del lib, name
-        
         assert self._get_typecode().name(ex()) == self.name
-    
+
     def _get_typecode(self):
         f = getattr(self._lib, self.name + '_get_typecode')
         f.argtypes = []
@@ -566,3 +568,37 @@ class Library(object):
         res = LibraryType(self._lib, attr)
         setattr(self, attr, res)
         return res
+
+
+class XMLLibrary(object):
+    def __init__(self, xml_path):
+        self._xmlpath = xml_path
+
+    def __getattr__(self, attr):
+        res = XMLLibraryType(self._xmlpath, attr)
+        setattr(self, attr, res)
+        return res
+
+
+_ddsc_lib.DDS_TypeCodeFactory_create_tc_from_xml_file.restype = ctypes.POINTER(DDSType.TypeCode)
+
+class XMLLibraryType(object):
+    def __init__(self, xml_path, name):
+        self._xml_path, self.name = xml_path, name
+        self._tc = None
+        self._tc = self._get_typecode()
+        calc_name = _ddsc_lib.DDS_TypeCode_name(self._tc, ex()) 
+
+        assert calc_name == self.name
+
+    def _get_typecode(self):
+        if self._tc:
+            return self._tc
+
+        typecode_factory = _ddsc_lib.DDS_TypeCodeFactory_get_instance()
+
+        tc = _ddsc_lib.DDS_TypeCodeFactory_create_tc_from_xml_file(typecode_factory,
+         self._xml_path, self.name, None, 1000, 1000, ex()
+        )
+
+        return tc
