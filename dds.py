@@ -131,11 +131,26 @@ DDSType.InstanceHandle_t._fields_ = [
 ]
 DDS_HANDLE_NIL = DDSType.InstanceHandle_t((ctypes.c_byte * 16)(*[0]*16), 16, False)
 
-'''DDSType.SampleInfo._fields_ = [
+DDS_Long = ctypes.c_long
+
+
+DDSType.DDS_Time_t._fields_ = [
+    ('sec', ctypes.c_long),
+    ('nanosec', ctypes.c_ulong),
+]
+
+DDS_SequenceNumber_t = ctypes.c_int
+DDS_SampleStateKind = ctypes.c_int
+DDS_ViewStateKind = ctypes.c_int
+DDS_InstanceStateKind = ctypes.c_int
+DDS_Boolean = ctypes.c_bool
+DDS_GUID_t = ctypes.c_long
+
+DDSType.SampleInfo._fields_ = [
     ('sample_state', DDS_SampleStateKind),
     ('view_state', DDS_ViewStateKind),
     ('instance_state', DDS_InstanceStateKind),
-    ('source_timestamp', DDS_Time_t),
+    ('source_timestamp', DDSType.DDS_Time_t),
     ('instance_handle', DDSType.InstanceHandle_t),
     ('publication_handle', DDSType.InstanceHandle_t),
     ('disposed_generation_count', DDS_Long),
@@ -144,14 +159,21 @@ DDS_HANDLE_NIL = DDSType.InstanceHandle_t((ctypes.c_byte * 16)(*[0]*16), 16, Fal
     ('generation_rank', DDS_Long),
     ('absolute_generation_rank', DDS_Long),
     ('valid_data', DDS_Boolean),
-    ('reception_timestamp', DDS_Time_t),
+    ('reception_timestamp', DDSType.DDS_Time_t),
     ('publication_sequence_number', DDS_SequenceNumber_t),
     ('reception_sequence_number', DDS_SequenceNumber_t),
     ('publication_virtual_guid', DDS_GUID_t),
     ('publication_virtual_sequence_number', DDS_SequenceNumber_t),
     ('original_publication_virtual_guid', DDS_GUID_t),
     ('original_publication_virtual_sequence_number', DDS_SequenceNumber_t),
-]'''
+]
+
+
+# class SampleInfo(ctypes.Structure):
+#     _fields_=[('instance_state', ctypes.c_uint32)]
+
+#ctypes.POINTER(DDSType.SampleInfo).instance_state = lambda self: self.contents.instance_state
+
 
 # some types
 enum = ctypes.c_int
@@ -183,6 +205,8 @@ DDS_SampleStateMask = DDS_UnsignedLong
 DDS_ViewStateMask = DDS_UnsignedLong
 DDS_InstanceStateMask = DDS_UnsignedLong
 DDS_StatusMask = DDS_UnsignedLong
+
+DDS_InstanceStateKind = ctypes.c_uint32
 
 DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED = 0
 
@@ -260,6 +284,7 @@ def _define_func(params):
 list(map(_define_func, [
     ('DomainParticipantFactory_get_instance', check_null, ctypes.POINTER(DDSType.DomainParticipantFactory), []),
     ('DomainParticipantFactory_create_participant', check_null, ctypes.POINTER(DDSType.DomainParticipant), [ctypes.POINTER(DDSType.DomainParticipantFactory), DDS_DomainId_t, ctypes.POINTER(DDSType.DomainParticipantQos), ctypes.POINTER(DDSType.DomainParticipantListener), DDS_StatusMask]),
+    ('DomainParticipantFactory_create_participant_from_config', check_null, ctypes.POINTER(DDSType.DomainParticipant), [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.c_char_p]),
     ('DomainParticipantFactory_delete_participant', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipantFactory), ctypes.POINTER(DDSType.DomainParticipant)]),
     
     ('DomainParticipant_create_publisher', check_null, ctypes.POINTER(DDSType.Publisher), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.POINTER(DDSType.PublisherQos), ctypes.POINTER(DDSType.PublisherListener), DDS_StatusMask]),
@@ -268,15 +293,22 @@ list(map(_define_func, [
     ('DomainParticipant_delete_subscriber', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipant), ctypes.POINTER(DDSType.Subscriber)]),
     ('DomainParticipant_create_topic', check_null, ctypes.POINTER(DDSType.Topic), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(DDSType.TopicQos), ctypes.POINTER(DDSType.TopicListener), DDS_StatusMask]),
     ('DomainParticipant_delete_topic', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipant), ctypes.POINTER(DDSType.Topic)]),
-    
+    ('DomainParticipant_lookup_datawriter_by_name', check_null, ctypes.POINTER(DDSType.DataWriter), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
+    ('DomainParticipant_lookup_datareader_by_name', check_null, ctypes.POINTER(DDSType.DataReader), [ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
+    ('DomainParticipant_delete_contained_entities', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DomainParticipant)]),
+
     ('Publisher_create_datawriter', check_null, ctypes.POINTER(DDSType.DataWriter), [ctypes.POINTER(DDSType.Publisher), ctypes.POINTER(DDSType.Topic), ctypes.POINTER(DDSType.DataWriterQos), ctypes.POINTER(DDSType.DataWriterListener), DDS_StatusMask]),
     ('Publisher_delete_datawriter', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.Publisher), ctypes.POINTER(DDSType.DataWriter)]),
     
     ('Subscriber_create_datareader', check_null, ctypes.POINTER(DDSType.DataReader), [ctypes.POINTER(DDSType.Subscriber), ctypes.POINTER(DDSType.TopicDescription), ctypes.POINTER(DDSType.DataReaderQos), ctypes.POINTER(DDSType.DataReaderListener), DDS_StatusMask]),
     ('Subscriber_delete_datareader', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.Subscriber), ctypes.POINTER(DDSType.DataReader)]),
     
+    ('DataWriter_get_topic', check_null, ctypes.POINTER(DDSType.Topic), [ctypes.POINTER(DDSType.DataWriter)]),
+
     ('DataReader_set_listener', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DataReader), ctypes.POINTER(DDSType.DataReaderListener), DDS_StatusMask]),
     
+    ('TopicDescription_get_type_name',check_null, ctypes.c_char_p, [ctypes.POINTER(DDSType.Topic)]),
+
     ('DynamicDataTypeSupport_new', check_null, ctypes.POINTER(DDSType.DynamicDataTypeSupport), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDSType.DynamicDataTypeProperty_t)]),
     ('DynamicDataTypeSupport_delete', None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
     ('DynamicDataTypeSupport_register_type', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
@@ -307,7 +339,8 @@ list(map(_define_func, [
     
     ('DynamicDataWriter_narrow', check_null, ctypes.POINTER(DDSType.DynamicDataWriter), [ctypes.POINTER(DDSType.DataWriter)]),
     ('DynamicDataWriter_write', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.InstanceHandle_t)]),
-    
+    ('DynamicDataWriter_dispose', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.InstanceHandle_t)]),
+
     ('DynamicDataReader_narrow', check_null, ctypes.POINTER(DDSType.DynamicDataReader), [ctypes.POINTER(DDSType.DataReader)]),
     ('DynamicDataReader_take', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataReader), ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.POINTER(DDSType.SampleInfoSeq), DDS_Long, DDS_SampleStateMask, DDS_ViewStateMask, DDS_InstanceStateMask]),
     ('DynamicDataReader_return_loan', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataReader), ctypes.POINTER(DDSType.DynamicDataSeq), ctypes.POINTER(DDSType.SampleInfoSeq)]),
@@ -434,6 +467,14 @@ def unpack_dd(dd):
 _outside_refs = set()
 _refs = set()
 
+
+def unpack_sampleInfo(sampleInfo):
+    obj = {}
+    obj['InstanceState']=sampleInfo.contents.instance_state
+    obj['SampleState']=sampleInfo.contents.sample_state
+    obj['ViewState']=sampleInfo.contents.view_state
+    return obj
+
 class Topic(object):
     def __init__(self, dds, name, data_type):
         self._dds = dds
@@ -517,6 +558,15 @@ class Topic(object):
             self._dyn_narrowed_writer.write(sample, DDS_HANDLE_NIL)
         finally:
             self._support.delete_data(sample)
+
+    def dispose(self, msg):
+        sample = self._support.create_data()
+        
+        try:
+            write_into_dd(msg, sample)
+            self._dyn_narrowed_writer.dispose(sample, DDS_HANDLE_NIL)
+        finally:
+            self._support.delete_data(sample)
     
     def recv(self):
         data_seq = DDSType.DynamicDataSeq()
@@ -525,39 +575,99 @@ class Topic(object):
         DDSFunc.SampleInfoSeq_initialize(info_seq)
         self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), 1, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
         try:
-            info = info_seq.get_reference(0)
-            return unpack_dd(data_seq.get_reference(0))
+            tinfo = (info_seq.get_reference(0))
+            sampleInfo = unpack_sampleInfo(info_seq.get_reference(0))
+            sampleData = unpack_dd(data_seq.get_reference(0))
+            retObj = {'sampleInfo': sampleInfo, 'sampleData': sampleData}            
+            
+            return retObj
         finally:
             self._dyn_narrowed_reader.return_loan(ctypes.byref(data_seq), ctypes.byref(info_seq))
 
-class DDS(object):
-    def __init__(self, domain_id=0):
-        self._participant = participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant(
-            domain_id,
-            get('PARTICIPANT_QOS_DEFAULT', DDSType.DomainParticipantQos),
-            None,
-            0,
-        )
-        
-        self._publisher = publisher = self._participant.create_publisher(
-            get('PUBLISHER_QOS_DEFAULT', DDSType.PublisherQos),
-            None,
-            0,
-        )
-        
-        self._subscriber = subscriber = self._participant.create_subscriber(
-            get('SUBSCRIBER_QOS_DEFAULT', DDSType.SubscriberQos),
-            None,
-            0,
-        )
-        self._open_topics = weakref.WeakValueDictionary()
+class Writer(object):
+    def __init__(self, dds, name):
+        self._dds = dds
+        self.name = name
+
+        self._writer = dds._participant.lookup_datawriter_by_name(cstring(name))
+        self._dyn_narrowed_writer = DDSFunc.DynamicDataWriter_narrow(self._writer)
+
+        #2Do according to the typeName
+        self.data_type = 'HelloWorldType'
+        #self._topic = self._writer.get_topic()
+        #data_type = self._topic.get_type
+
+        #self._support = support = DDSFunc.DynamicDataTypeSupport_new(self.data_type._get_typecode(), get('DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT', DDSType.DynamicDataTypeProperty_t))
+        #self._support.register_type(self._dds._participant, self.data_type.name)
+
         
         def cleanup(ref):
-            participant.delete_subscriber(subscriber)
-            participant.delete_publisher(publisher)
+            #dds._publisher.delete_datawriter(writer)
+            #dds._subscriber.delete_datareader(reader)
+            #dds._participant.delete_topic(topic)
+            #support.unregister_type(dds._participant, data_type.name)
+            #support.delete()
             
+            _refs.remove(ref)
+        _refs.add(weakref.ref(self, cleanup))
+    
+    def send(self, msg):
+        sample = self._support.create_data()
+        
+        try:
+            write_into_dd(msg, sample)
+            self._dyn_narrowed_writer.write(sample, DDS_HANDLE_NIL)
+        finally:
+            self._support.delete_data(sample)
+
+    def dispose(self, msg):
+        sample = self._support.create_data()
+        
+        try:
+            write_into_dd(msg, sample)
+            self._dyn_narrowed_writer.dispose(sample, DDS_HANDLE_NIL)
+        finally:
+            self._support.delete_data(sample)
+
+
+class DDS(object):
+    def __init__(self, configuration_name = "", domain_id=0):
+        self.configuration_name = configuration_name
+        if (self.configuration_name == ""):
+            print ('creating application via API')
+            self._participant = participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant(
+                domain_id,
+                get('PARTICIPANT_QOS_DEFAULT', DDSType.DomainParticipantQos),
+                None,
+                0,
+            )
+            
+            self._publisher = publisher = self._participant.create_publisher(
+                get('PUBLISHER_QOS_DEFAULT', DDSType.PublisherQos),
+                None,
+                0,
+            )
+            
+            self._subscriber = subscriber = self._participant.create_subscriber(
+                get('SUBSCRIBER_QOS_DEFAULT', DDSType.SubscriberQos),
+                None,
+                0,
+            )
+            self._open_topics = weakref.WeakValueDictionary()
+        
+        # Creating participant according to configuration file
+        else:
+            print ('creating application via configuration file : ' + configuration_name)
+            self._participant = participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant_from_config(cstring(self.configuration_name))
+            
+            #self._open_topics = weakref.WeakValueDictionary()
+
+        def cleanup(ref):
+            #participant.delete_subscriber(subscriber)
+            #participant.delete_publisher(publisher)
+            #participant.DomainParticipant_delete_contained_entities(participant)
             # very slow for some reason
-            DDSFunc.DomainParticipantFactory_get_instance().delete_participant(participant)
+            #DDSFunc.DomainParticipantFactory_get_instance().delete_participant(participant)
             
             _refs.remove(ref)
         _refs.add(weakref.ref(self, cleanup))
@@ -571,6 +681,18 @@ class DDS(object):
         res = Topic(self, name, data_type)
         self._open_topics[name] = res
         return res
+    
+    def lookup_datawriter_by_name(self, datawriter_full_name):
+        #res =  self._participant.lookup_datawriter_by_name(cstring(datawriter_full_name))
+        res = Writer(self,cstring(datawriter_full_name))
+        return res
+
+    def lookup_datareader_by_name(self, datareader_full_name):
+        res =  self._participant.lookup_datareader_by_name(cstring(datareader_full_name))
+        return res
+
+
+
 
 
 class LibraryType(object):

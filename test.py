@@ -7,6 +7,9 @@ import dds
 recv = ['send', 'recv'].index(sys.argv[1])
 
 d = dds.DDS()
+#DDSParticipant = dds.DDS('MyParticipantLibrary::PublicationParticipant')
+#time.sleep(100)
+
 #l = dds.Library('./libddsmessages_c.so')
 
 # The path to the XML file, the file needs to contain only the <types> element, see example.xml
@@ -28,7 +31,13 @@ topics = []
 # xml example
 
 topics.append((d.get_topic('txml', l.Sensor), lambda: dict(sensorID=random.randrange(2**30), measuredValue = random.gauss(0,1), tag = random.sample(["hot", "cold"],1)[0])))
+#HelloWriter = DDSParticipant.lookup_datawriter_by_name('MyPublisher::HelloWorldWriter')
+#HelloReader = DDSParticipant.lookup_datareader_by_name('MySubscriber::HelloWorldReader')
 
+#myData = {'sender' : 'Me' , 'message' : 'HelloWorld' , 'count' : 1}
+#HelloWriter.send(myData)
+
+#time.sleep(100)
 
 if recv:
     while True:
@@ -47,4 +56,7 @@ else:
         msg = mf()
         print("Sending %r on %s" % (msg, t.name))
         t.send(msg)
-        time.sleep(.1)
+        time.sleep(1)
+        print("Dispose %r on %s" % (msg, t.name))
+        t.dispose(msg)
+        time.sleep(1)
