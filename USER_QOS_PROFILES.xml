@@ -47,20 +47,13 @@ RTI Data Distribution Service Deployment
                 <data_writer name="HelloWorldWriter"
                              topic_ref="HelloWorldTopic"/>
             </publisher>
-            <subscriber name="MySubscriber">
-                <data_reader name="HelloWorldReader"
-                             topic_ref="HelloWorldTopic">                                  
-                </data_reader>
-            </subscriber>
         </domain_participant>
         
         <domain_participant name="SubscriptionParticipant"
                             domain_ref="MyDomainLibrary::HelloWorldDomain">
             <subscriber name="MySubscriber">
                 <data_reader name="HelloWorldReader"
-                             topic_ref="HelloWorldTopic">
-                    <datareader_qos name="HelloWorld_reader_qos" 
-                                    base_name="qosLibrary::DefaultProfile"/>                                    
+                             topic_ref="HelloWorldTopic">                                
                 </data_reader>
             </subscriber>
         </domain_participant>
