@@ -481,115 +481,6 @@ def unpack_sampleInfo(sampleInfo):
     obj['ViewState']=sampleInfo.contents.view_state
     return obj
 
-class Topic(object):
-    def __init__(self, dds, name, data_type):
-        self._dds = dds
-        self.name = name
-        self.data_type = data_type
-        
-        self._support = support = DDSFunc.DynamicDataTypeSupport_new(self.data_type._get_typecode(), get('DYNAMIC_DATA_TYPE_PROPERTY_DEFAULT', DDSType.DynamicDataTypeProperty_t))
-        self._support.register_type(self._dds._participant, self.data_type.name)
-        
-        self._topic = topic = self._dds._participant.create_topic(
-            cstring(self.name),
-            cstring(self.data_type.name),
-            get('TOPIC_QOS_DEFAULT', DDSType.TopicQos),
-            None,
-            0,
-        )
-        
-        self._writer = writer = self._dds._publisher.create_datawriter(
-            self._topic,
-            get('DATAWRITER_QOS_DEFAULT', DDSType.DataWriterQos),
-            None,
-            0,
-        )
-        self._dyn_narrowed_writer = DDSFunc.DynamicDataWriter_narrow(self._writer)
-        
-        self._listener = None
-        self._reader = reader = self._dds._subscriber.create_datareader(
-            self._topic.as_topicdescription(),
-            get('DATAREADER_QOS_DEFAULT', DDSType.DataReaderQos),
-            self._listener,
-            0,
-        )
-        self._dyn_narrowed_reader = DDSFunc.DynamicDataReader_narrow(self._reader)
-        
-        self._callbacks = {}
-        
-        def cleanup(ref):
-            dds._publisher.delete_datawriter(writer)
-            dds._subscriber.delete_datareader(reader)
-            dds._participant.delete_topic(topic)
-            support.unregister_type(dds._participant, data_type.name)
-            support.delete()
-            
-            _refs.remove(ref)
-        _refs.add(weakref.ref(self, cleanup))
-    
-    def _enable_listener(self):
-        assert self._listener is None
-        self._listener = DDSType.DataReaderListener(on_data_available=ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.POINTER(DDSType.DataReader))(self._data_available_callback))
-        self._reader.set_listener(self._listener, DATA_AVAILABLE_STATUS)
-        _outside_refs.add(self) # really want self._listener, but this does the same thing
-    
-    def _disable_listener(self):
-        assert self._listener is not None
-        self._reader.set_listener(None, 0)
-        self._listener = None
-        _outside_refs.remove(self)
-    
-    def add_data_available_callback(self, cb):
-        '''Warning: callback is called back in another thread!'''
-        if not self._callbacks:
-            self._enable_listener()
-        ref = max(self._callbacks) if self._callbacks else 0
-        self._callbacks[ref] = cb
-        return ref
-    
-    def remove_data_available_callback(self, ref):
-        del self._callbacks[ref]
-        if not self._callbacks:
-            self._disable_listener()
-    
-    def _data_available_callback(self, listener_data, datareader):
-        for cb in self._callbacks.values():
-            cb()
-    
-    def write(self, msg):
-        sample = self._support.create_data()
-        
-        try:
-            write_into_dd(msg, sample)
-            self._dyn_narrowed_writer.write(sample, DDS_HANDLE_NIL)
-        finally:
-            self._support.delete_data(sample)
-
-    def dispose(self, msg):
-        sample = self._support.create_data()
-        
-        try:
-            write_into_dd(msg, sample)
-            self._dyn_narrowed_writer.dispose(sample, DDS_HANDLE_NIL)
-        finally:
-            self._support.delete_data(sample)
-    
-    def take(self):
-        data_seq = DDSType.DynamicDataSeq()
-        DDSFunc.DynamicDataSeq_initialize(data_seq)
-        info_seq = DDSType.SampleInfoSeq()
-        DDSFunc.SampleInfoSeq_initialize(info_seq)
-        self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), 1, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
-        try:
-            tinfo = (info_seq.get_reference(0))
-            sampleInfo = unpack_sampleInfo(info_seq.get_reference(0))
-            sampleData = unpack_dd(data_seq.get_reference(0))
-            retObj = {'sampleInfo': sampleInfo, 'sampleData': sampleData}            
-            
-            return retObj
-        finally:
-            self._dyn_narrowed_reader.return_loan(ctypes.byref(data_seq), ctypes.byref(info_seq))
-
 class Writer(object):
     def __init__(self, dds, name):
         self._dds = weakref.ref(dds)
@@ -664,13 +555,19 @@ class Reader(object):
         for cb in self._callbacks.values():
             cb()
 
-    def receive(self, takeFlag = True):
+    def read(self):
+        return self._receive(False)
+
+    def take(self):
+        return self._receive(True)
+
+    def _receive(self, take = True):
         """'takeFlag' controls whether read samples stay in the DDS cache (i.e. use DDS Read API) or removed (i.e. use DDS Take API) """
         data_seq = DDSType.DynamicDataSeq()
         DDSFunc.DynamicDataSeq_initialize(data_seq)
         info_seq = DDSType.SampleInfoSeq()
         DDSFunc.SampleInfoSeq_initialize(info_seq)
-        if takeFlag:
+        if take:
             self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
         else:
             self._dyn_narrowed_reader.read(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
@@ -686,9 +583,9 @@ class Reader(object):
         finally:
             self._dyn_narrowed_reader.return_loan(ctypes.byref(data_seq), ctypes.byref(info_seq))
         
-class DDS_XML(object):
+class DDS(object):
     """Creating application via configuration file name (i.e. XML Application Creation)"""
-    def __init__(self, configuration_name: str):
+    def __init__(self, configuration_name):
         self.configuration_name = configuration_name
         self._participant = participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant_from_config(cstring(self.configuration_name))
 
@@ -704,109 +601,3 @@ class DDS_XML(object):
         """Retrieves the DDS DataReader according to its full name (e.g. MySubscriber::HelloWorldReader"""
         res = Reader(self,cstring(datareader_full_name))
         return res
-
-class DDS(object):
-    def __init__(self, domain_id=0):
-        self._participant = participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant(
-            domain_id,
-            get('PARTICIPANT_QOS_DEFAULT', DDSType.DomainParticipantQos),
-            None,
-            0,
-        )
-        
-        self._publisher = publisher = self._participant.create_publisher(
-            get('PUBLISHER_QOS_DEFAULT', DDSType.PublisherQos),
-            None,
-            0,
-        )
-        
-        self._subscriber = subscriber = self._participant.create_subscriber(
-            get('SUBSCRIBER_QOS_DEFAULT', DDSType.SubscriberQos),
-            None,
-            0,
-        )
-        self._open_topics = weakref.WeakValueDictionary()
-
-        def cleanup(ref):
-            #participant.delete_subscriber(subscriber)
-            #participant.delete_publisher(publisher)
-            participant.delete_contained_entities(participant)
-            # very slow for some reason
-            #DDSFunc.DomainParticipantFactory_get_instance().delete_participant(participant)
-            
-            _refs.remove(ref)
-        _refs.add(weakref.ref(self, cleanup))
-    
-    def get_topic(self, name, data_type):
-        """Do not use in case using XML configuration based application"""
-        res = self._open_topics.get(name, None)
-        if res is not None:
-            if data_type != res.data_type:
-                raise ValueError('get_topic called with a previous name but a different data_type')
-            return res
-        res = Topic(self, name, data_type)
-        self._open_topics[name] = res
-        return res
-    
-    def lookup_datawriter_by_name(self, datawriter_full_name):
-        res = Writer(self,cstring(datawriter_full_name))
-        return res
-
-    def lookup_datareader_by_name(self, datareader_full_name):
-        res = Reader(self,cstring(datareader_full_name))
-        return res
-
-
-class LibraryType(object):
-    def __init__(self, lib, name):
-        self._lib, self.name = lib, name
-        del lib, name
-        assert self._get_typecode().name(ex()) == self.name
-
-    def _get_typecode(self):
-        f = getattr(self._lib, self.name + '_get_typecode')
-        f.argtypes = []
-        f.restype = ctypes.POINTER(DDSType.TypeCode)
-        f.errcheck = check_null
-        return f()
-
-class Library(object):
-    def __init__(self, so_path):
-        self._lib = ctypes.CDLL(so_path)
-    
-    def __getattr__(self, attr):
-        res = LibraryType(self._lib, attr)
-        setattr(self, attr, res)
-        return res
-
-
-class XMLLibrary(object):
-    def __init__(self, xml_path):
-        self._xmlpath = xml_path
-
-    def __getattr__(self, attr):
-        res = XMLLibraryType(self._xmlpath, attr)
-        setattr(self, attr, res)
-        return res
-
-
-_ddsc_lib.DDS_TypeCodeFactory_create_tc_from_xml_file.restype = ctypes.POINTER(DDSType.TypeCode)
-
-class XMLLibraryType(object):
-    def __init__(self, xml_path, name):
-        self._xml_path, self.name = cstring(xml_path), cstring(name)
-        self._tc = None
-        self._tc = self._get_typecode()
-        calc_name = _ddsc_lib.DDS_TypeCode_name(self._tc, ex()) 
-
-        assert calc_name == self.name
-
-    def _get_typecode(self):
-        if self._tc:
-            return self._tc
-
-        typecode_factory = _ddsc_lib.DDS_TypeCodeFactory_get_instance()
-        tc = _ddsc_lib.DDS_TypeCodeFactory_create_tc_from_xml_file(typecode_factory,
-         self._xml_path, self.name, None, 1000, 1000, ex()
-        )
-        return tc

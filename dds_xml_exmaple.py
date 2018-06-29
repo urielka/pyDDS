@@ -7,17 +7,17 @@ import dds
 PUB_ROLE = 0
 SUB_ROLE = 1
 
-role = ['Pub', 'Sub'].index(sys.argv[1])
+role = ['pub', 'sub'].index(sys.argv[1])
 
 if role == PUB_ROLE:
-    DDSParticipant = dds.DDS_XML('MyParticipantLibrary::PublicationParticipant')
+    participant = dds.DDS('MyParticipantLibrary::PublicationParticipant')
     writers = []
-    writers.append ((DDSParticipant.lookup_datawriter_by_name('MyPublisher::HelloWorldWriter'),
+    writers.append ((participant.lookup_datawriter_by_name('MyPublisher::HelloWorldWriter'),
      lambda: dict(sender=str(random.randrange(2**10)), message=str(random.randrange(2**10)), count=(random.randrange(1,100000)))))
 else:
-    DDSParticipant = dds.DDS_XML('MyParticipantLibrary::SubscriptionParticipant')
+    participant = dds.DDS('MyParticipantLibrary::SubscriptionParticipant')
     readers = []
-    readers.append ((DDSParticipant.lookup_datareader_by_name('MySubscriber::HelloWorldReader')))
+    readers.append ((participant.lookup_datareader_by_name('MySubscriber::HelloWorldReader')))
 
 
 if role == PUB_ROLE:
@@ -35,7 +35,7 @@ else:
     while True:
         for reader in readers:
             try:
-                msgList = reader.receive(takeFlag=True)
+                msgList = reader.read()
             except dds.Error as e:
                 if str(e) == 'no data':
                     continue

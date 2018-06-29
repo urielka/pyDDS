@@ -1,9 +1,0 @@
-<?xml version="1.0"?>
-
-<types>
-	<struct name="Sensor">
-	  <member name="sensorID" type="long" key="true"/>
-	  <member name="measuredValue" type="double"/>
-	  <member name="tag" type="string"/>
-	</struct>
-</types>
