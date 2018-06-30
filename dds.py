@@ -508,29 +508,21 @@ class Writer(object):
         self._dynamicData = self._dyn_narrowed_writer.create_data_w_property(get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty_t))
 
     def __del__(self):
+        # TODO: what about this?
         #self._dyn_narrowed_writer.delete_data(self._dynamicData)
         pass
     
     def write(self, msg):
-        try:
-            write_into_dd(msg, self._dynamicData)
-            self._dyn_narrowed_writer.write(self._dynamicData, DDS_HANDLE_NIL)
-        except dds.Error as e:
-            print(e)
+        write_into_dd(msg, self._dynamicData)
+        self._dyn_narrowed_writer.write(self._dynamicData, DDS_HANDLE_NIL)
 
     def dispose(self, msg):
-        try:
-            write_into_dd(msg, self._dynamicData)
-            self._dyn_narrowed_writer.dispose(self._dynamicData, DDS_HANDLE_NIL)
-        except dds.Error as e:
-            print(e)
+        write_into_dd(msg, self._dynamicData)
+        self._dyn_narrowed_writer.dispose(self._dynamicData, DDS_HANDLE_NIL)
 
     def unregister(self, msg):
-        try:
-            write_into_dd(msg, self._dynamicData)
-            self._dyn_narrowed_writer.unregister_instance(self._dynamicData, DDS_HANDLE_NIL)
-        except dds.Error as e:
-            print(e)
+        write_into_dd(msg, self._dynamicData)
+        self._dyn_narrowed_writer.unregister_instance(self._dynamicData, DDS_HANDLE_NIL)
 
 class Reader(object):
     def __init__(self, dds, name):
