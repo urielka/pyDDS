@@ -3,12 +3,30 @@ import os
 import sys
 import weakref
 
-arch_str = 'x64Linux3gcc5.4.0' if sys.maxsize > 2**32 else 'i86Linux2.6gcc4.1.1'
-lpath = os.path.join(os.environ['NDDSHOME'], 'lib', arch_str, 'libnddscore.so')
 
-_ddscore_lib = ctypes.CDLL(lpath, ctypes.RTLD_GLOBAL)
+NDDSHOME = os.environ['NDDSHOME']
+archs = os.listdir(os.path.join(NDDSHOME, 'lib'))
 
-_ddsc_lib = ctypes.CDLL(os.path.join(os.environ['NDDSHOME'], 'lib', arch_str, 'libnddsc.so'))
+cpu_arch = os.uname().machine 
+rti_arch = {
+    'x86_64': 'x64Linux',
+    'x86': 'i86Linux',
+    'aarch64': '<TODO add here arm prefix>'
+}[cpu_arch]
+
+arch_str = None
+for arch in archs:
+    if arch.startswith(rti_arch):
+        arch_str = arch
+        break
+
+if arch_str is None:
+    raise Exception("No sutiable RTI installation was found for '%s' arch in %s" % (cpu_arch, NDDSHOME))
+
+
+base_path = os.path.join(NDDSHOME, 'lib', arch_str) 
+_ddscore_lib = ctypes.CDLL(os.path.join(base_path, 'libnddscore.so'), ctypes.RTLD_GLOBAL)
+_ddsc_lib = ctypes.CDLL(os.path.join(base_path, 'libnddsc.so'))
 
 
 # Python 3 has bytes and str, calling ctypes requires bytes and returns bytes
