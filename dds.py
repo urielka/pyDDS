@@ -24,7 +24,7 @@ if arch_str is None:
     raise Exception("No sutiable RTI installation was found for '%s' arch in %s" % (cpu_arch, NDDSHOME))
 
 
-base_path = os.path.join(NDDSHOME, 'lib', arch_str) 
+base_path = os.path.join(NDDSHOME, 'lib', arch_str)
 _ddscore_lib = ctypes.CDLL(os.path.join(base_path, 'libnddscore.so'), ctypes.RTLD_GLOBAL)
 _ddsc_lib = ctypes.CDLL(os.path.join(base_path, 'libnddsc.so'))
 
@@ -426,7 +426,8 @@ def write_into_dd(obj, dd):
         tc = dd.get_type()
         for i in range(tc.member_count(ex())):
             name = pstring(tc.member_name(i, ex()))
-            write_into_dd_member(obj[name], dd, member_name=name)
+            if name in obj:
+                write_into_dd_member(obj[name], dd, member_name=name)
     elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
         assert isinstance(obj, list)
         for i, x in enumerate(obj):
@@ -595,9 +596,12 @@ class Reader(object):
         
 class DDS(object):
     """Creating application via configuration file name (i.e. XML Application Creation)"""
-    def __init__(self, configuration_name):
+    def __init__(self, configuration_name, configuration_file = None):
+        if configuration_file:
+            os.environ['NDDS_QOS_PROFILES'] = configuration_file
+
         self.configuration_name = configuration_name
-        self._participant = participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant_from_config(cstring(self.configuration_name))
+        self._participant = DDSFunc.DomainParticipantFactory_get_instance().create_participant_from_config(cstring(self.configuration_name))
 
     def __del__(self):
         self._participant.delete_contained_entities()
