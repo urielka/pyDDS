@@ -578,10 +578,17 @@ class Reader(object):
         DDSFunc.DynamicDataSeq_initialize(data_seq)
         info_seq = DDSType.SampleInfoSeq()
         DDSFunc.SampleInfoSeq_initialize(info_seq)
-        if take:
-            self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
-        else:
-            self._dyn_narrowed_reader.read(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
+
+        try:
+            if take:
+                self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
+            else:
+                self._dyn_narrowed_reader.read(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
+        except Error as e:
+            if str(e) == 'no data':
+                return []
+            else:
+                raise e
         data_seq_length = data_seq.get_length()
         samplesList = []
         try:

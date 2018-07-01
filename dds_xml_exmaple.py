@@ -34,12 +34,7 @@ if role == PUB_ROLE:
 else:
     while True:
         for reader in readers:
-            try:
-                msgList = reader.read()
-            except dds.Error as e:
-                if str(e) == 'no data':
-                    continue
-                raise
+            msgList = reader.read()
             print (len(msgList))
             for msg in msgList:
                 print("Received %r on %s" % (msg, reader.name))
