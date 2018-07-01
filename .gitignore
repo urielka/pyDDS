@@ -1,3 +1,7 @@
 *.pyc
 dist
 __pycache__
+dds/librtiddsconnector*.so
+build
+pydds_rti_xml.egg-info
+

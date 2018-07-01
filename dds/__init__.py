@@ -4,29 +4,44 @@ import sys
 import weakref
 
 
-NDDSHOME = os.environ['NDDSHOME']
-archs = os.listdir(os.path.join(NDDSHOME, 'lib'))
 
-cpu_arch = os.uname().machine 
+CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+
+#4 is machine
+cpu_arch = os.uname()[4]
+
 rti_arch = {
     'x86_64': 'x64Linux',
     'x86': 'i86Linux',
     'aarch64': '<TODO add here arm prefix>'
 }[cpu_arch]
 
-arch_str = None
-for arch in archs:
-    if arch.startswith(rti_arch):
-        arch_str = arch
-        break
+connector_so = os.path.join(CURRENT_DIR, {
+    'x86_64': 'librtiddsconnector-x64.so',
+    'aarch64': 'librtiddsconnector-armv8.so'
+}[cpu_arch])
 
-if arch_str is None:
-    raise Exception("No sutiable RTI installation was found for '%s' arch in %s" % (cpu_arch, NDDSHOME))
+_ddsc_lib = None
 
+if os.path.isfile(connector_so):
+    _ddsc_lib = ctypes.CDLL(connector_so) 
 
-base_path = os.path.join(NDDSHOME, 'lib', arch_str)
-_ddscore_lib = ctypes.CDLL(os.path.join(base_path, 'libnddscore.so'), ctypes.RTLD_GLOBAL)
-_ddsc_lib = ctypes.CDLL(os.path.join(base_path, 'libnddsc.so'))
+if not _ddsc_lib:
+    NDDSHOME = os.environ['NDDSHOME']
+    archs = os.listdir(os.path.join(NDDSHOME, 'lib'))
+
+    arch_str = None
+    for arch in archs:
+        if arch.startswith(rti_arch):
+            arch_str = arch
+            break
+
+    if arch_str is None:
+        raise Exception("No sutiable RTI installation was found for '%s' arch in %s" % (cpu_arch, NDDSHOME))
+
+    base_path = os.path.join(NDDSHOME, 'lib', arch_str)
+    _ddscore_lib = ctypes.CDLL(os.path.join(base_path, 'libnddscore.so'), ctypes.RTLD_GLOBAL)
+    _ddsc_lib = ctypes.CDLL(os.path.join(base_path, 'libnddsc.so'))
 
 
 # Python 3 has bytes and str, calling ctypes requires bytes and returns bytes
