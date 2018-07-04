@@ -17,10 +17,17 @@ RTI Data Distribution Service Deployment
         <const name="MAX_NAME_LEN" type="long" value="64"/>
         <const name="MAX_MSG_LEN"  type="long" value="128"/>
 
+        <enum name="ColorEnum" extensibility="extensible">
+            <enumerator name="RED" value="0"/>
+            <enumerator name="YELLOW" value="1"/>
+            <enumerator name="GREEN" value="2"/>
+        </enum>
+
         <struct name="HelloWorld">
             <member name="sender"  type="string"  stringMaxLength="MAX_NAME_LEN"  key="true"/>
             <member name="message" type="string"  stringMaxLength="MAX_MSG_LEN"/>
             <member name="count"   type="long"/>
+            <member name="color"  type="nonBasic" nonBasicTypeName="ColorEnum"/>
         </struct>
     </types>
 

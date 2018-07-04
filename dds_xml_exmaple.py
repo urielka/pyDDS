@@ -13,7 +13,7 @@ if role == PUB_ROLE:
     participant = dds.DDS('MyParticipantLibrary::PublicationParticipant')
     writers = []
     writers.append ((participant.lookup_datawriter_by_name('MyPublisher::HelloWorldWriter'),
-     lambda: dict(sender=str(random.randrange(2**10)), message=str(random.randrange(2**10)), count=(random.randrange(1,100000)))))
+     lambda: dict(sender=str(random.randrange(2**10)), message=str(random.randrange(2**10)), count=(random.randrange(1,100000)),color=random.randint(0,2))))
 else:
     participant = dds.DDS('MyParticipantLibrary::SubscriptionParticipant')
     readers = []
