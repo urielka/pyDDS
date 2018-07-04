@@ -431,6 +431,8 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_M
         dd.set_string(member_name, member_id, cstring(obj))
     elif kind == TCKind.WSTRING:
         dd.set_wstring(member_name, member_id, obj)
+    elif kind == TCKind.ENUM:
+        dd.set_long(member_name, member_id, obj)
     else:
         raise NotImplementedError(kind)
 
@@ -484,6 +486,10 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
             return inner.value
         finally:
             DDSFunc.Wstring_free(inner)
+    elif kind == TCKind.ENUM:
+        inner = DDS_Long()
+        getattr(dd, 'get_' + 'long')(ctypes.byref(inner), member_name, member_id)
+        return inner.value
     else:
         raise NotImplementedError(kind)
 
