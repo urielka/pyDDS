@@ -1,70 +1,82 @@
-
 <!--
 RTI Data Distribution Service Deployment
 -->
 <dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-     xsi:noNamespaceSchemaLocation="http://community.rti.com/schema/5.3.0/rti_dds_profiles.xsd" 
+     xsi:noNamespaceSchemaLocation="http://community.rti.com/schema/5.3.0/rti_dds_profiles.xsd"
      version="5.3.0">
-         
-    <!-- Qos Library -->
-    <qos_library name="qosLibrary">
-        <qos_profile name="DefaultProfile">
-        </qos_profile>
-    </qos_library>
 
-    <!-- types -->
-    <types>
-        <const name="MAX_NAME_LEN" type="long" value="64"/>
-        <const name="MAX_MSG_LEN"  type="long" value="128"/>
+  <!-- Qos Library -->
+  <qos_library name="qosLibrary">
+    <qos_profile name="DefaultProfile">
+    </qos_profile>
+  </qos_library>
 
-        <enum name="ColorEnum" extensibility="extensible">
-            <enumerator name="RED" value="0"/>
-            <enumerator name="YELLOW" value="1"/>
-            <enumerator name="GREEN" value="2"/>
-        </enum>
+  <!-- types -->
+  <types>
+    <struct name="HelloBigWorld">
+      <member name="seq"   type="long"/>
+      <member name="data" type="string"  stringMaxLength="100000000"/>
+    </struct>
+  </types>
 
-        <struct name="HelloWorld">
-            <member name="sender"  type="string"  stringMaxLength="MAX_NAME_LEN"  key="true"/>
-            <member name="message" type="string"  stringMaxLength="MAX_MSG_LEN"/>
-            <member name="count"   type="long"/>
-            <member name="color"  type="nonBasic" nonBasicTypeName="ColorEnum"/>
-        </struct>
-    </types>
+  <!-- Domain Library -->
+  <domain_library name="MyDomainLibrary" >
 
-    <!-- Domain Library -->
-    <domain_library name="MyDomainLibrary" >
+    <domain name="HelloWorldDomain" domain_id="0">
+      <register_type name="HelloWorldType"
+                     type_ref="HelloWorld" />
+      <register_type name="HelloBigWorldType"
+                     type_ref="HelloBigWorld" />
 
-        <domain name="HelloWorldDomain" domain_id="0">
-            <register_type name="HelloWorldType"
-                           type_ref="HelloWorld" />
-            <topic name="HelloWorldTopic"
-                   register_type_ref="HelloWorldType">
-                <topic_qos name="HelloWorld_qos"
-                           base_name="qosLibrary::DefaultProfile"/>
-            </topic>
-        </domain>
-    </domain_library>
+      <topic name="HelloWorldTopic"
+             register_type_ref="HelloWorldType"/>
+      <topic name="HelloBigWorldTopic"
+             register_type_ref="HelloBigWorldType">
+      </topic>
+    </domain>
+  </domain_library>
 
-    <!-- Participant library -->
-    <domain_participant_library name="MyParticipantLibrary">
+  <!-- Participant library -->
+  <domain_participant_library name="MyParticipantLibrary">
 
-        <domain_participant name="PublicationParticipant" 
-                            domain_ref="MyDomainLibrary::HelloWorldDomain">
-            <publisher name="MyPublisher">
-                <data_writer name="HelloWorldWriter"
-                             topic_ref="HelloWorldTopic"/>
-            </publisher>
-        </domain_participant>
-        
-        <domain_participant name="SubscriptionParticipant"
-                            domain_ref="MyDomainLibrary::HelloWorldDomain">
-            <subscriber name="MySubscriber">
-                <data_reader name="HelloWorldReader"
-                             topic_ref="HelloWorldTopic">                                
-                </data_reader>
-            </subscriber>
-        </domain_participant>
-       
-    </domain_participant_library>
+    <domain_participant name="PublicationParticipant"
+                        domain_ref="MyDomainLibrary::HelloWorldDomain">
+      <publisher name="MyPublisher">
+        <data_writer name="HelloWorldWriter"
+                     topic_ref="HelloWorldTopic"/>
+      </publisher>
+    </domain_participant>
+
+    <domain_participant name="SubscriptionParticipant"
+                        domain_ref="MyDomainLibrary::HelloWorldDomain">
+      <subscriber name="MySubscriber">
+        <data_reader name="HelloWorldReader"
+                     topic_ref="HelloWorldTopic"/>
+      </subscriber>
+    </domain_participant>
+
+    <!--Big Messages Participants Example-->
+
+    <domain_participant name="BigPublicationParticipant"
+                  domain_ref="MyDomainLibrary::HelloWorldDomain">
+      <publisher name="MyBigPublisher">
+        <data_writer name="HelloBigWorldWriter"
+                     topic_ref="HelloBigWorldTopic">
+          <datawriter_qos base_name="BuiltinQosLibExp::Generic.StrictReliable.LargeData"/>
+        </data_writer>
+      </publisher>
+    </domain_participant>
+
+    <domain_participant name="BigSubscriptionParticipant"
+                    domain_ref="MyDomainLibrary::HelloWorldDomain">
+      <subscriber name="MyBigSubscriber">
+        <data_reader name="HelloBigWorldReader"
+                     topic_ref="HelloBigWorldTopic">
+          <datareader_qos base_name="BuiltinQosLibExp::Generic.StrictReliable.LargeData"/>
+        </data_reader>
+      </subscriber>
+    </domain_participant>
+
+  </domain_participant_library>
 
 </dds>
