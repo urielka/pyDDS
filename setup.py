@@ -3,7 +3,7 @@ import os
 
 
 setup(name='pydds-rti-xml',
-      version='0.1.1',
+      version='0.1.2',
       description='Python wrapper for RTI DDS with XML application support',
       author='Uriel Katz',
       author_email='uriel.katz@gmail.com',
