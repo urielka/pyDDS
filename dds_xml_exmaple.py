@@ -19,7 +19,6 @@ else:
     readers = []
     readers.append ((participant.lookup_datareader_by_name('MySubscriber::HelloWorldReader')))
 
-
 if role == PUB_ROLE:
     while True:
         writer, data = random.choice(writers)
@@ -34,9 +33,10 @@ if role == PUB_ROLE:
 else:
     while True:
         for reader in readers:
-            msgList = reader.read()
+            msgList = reader.take(dds.DDS_InstanceStateKindEnum.DDS_ALIVE_INSTANCE_STATE)
             print (len(msgList))
             for msg in msgList:
                 print("Received %r on %s" % (msg, reader.name))
         print('sleeping for 1 sec...')
         time.sleep(1)
+
