@@ -2,7 +2,7 @@ import ctypes
 import os
 import sys
 import weakref
-
+from enum import Enum
 
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -119,6 +119,21 @@ class DDSFunc(object):
 
 DDSFunc = DDSFunc()
 
+class DDS_InstanceStateKindEnum(Enum):
+    DDS_ALIVE_INSTANCE_STATE = 1
+    DDS_NOT_ALIVE_DISPOSED_INSTANCE_STATE = 2
+    DDS_NOT_ALIVE_NO_WRITERS_INSTANCE_STATE = 4
+    DDS_ANY_INSTANCE_STATE = 65535
+
+class DDS_ViewStateKindEnum(Enum):
+    DDS_NEW_VIEW_STATE = 1
+    DDS_NOT_NEW_VIEW_STATE = 2
+
+class DDS_SampleStateKindEnum(Enum):
+    DDS_READ_SAMPLE_STATE = 1
+    DDS_NOT_READ_SAMPLE_STATE = 2
+
+
 class DDSType(object):
     def __getattr__(self, attr):
         contents = type(attr, (ctypes.Structure,), {})
@@ -162,52 +177,6 @@ DDSType.InstanceHandle_t._fields_ = [
     ('keyHash_length', ctypes.c_uint32),
     ('isValid', ctypes.c_int),
 ]
-DDS_HANDLE_NIL = DDSType.InstanceHandle_t((ctypes.c_byte * 16)(*[0]*16), 16, False)
-DDS_LENGTH_UNLIMITED = 2^16
-
-DDS_Long = ctypes.c_long
-
-
-DDSType.DDS_Time_t._fields_ = [
-    ('sec', ctypes.c_long),
-    ('nanosec', ctypes.c_ulong),
-]
-
-DDS_SequenceNumber_t = ctypes.c_int
-DDS_SampleStateKind = ctypes.c_int
-DDS_ViewStateKind = ctypes.c_int
-DDS_InstanceStateKind = ctypes.c_int
-DDS_Boolean = ctypes.c_bool
-DDS_GUID_t = ctypes.c_long
-
-DDSType.SampleInfo._fields_ = [
-    ('sample_state', DDS_SampleStateKind),
-    ('view_state', DDS_ViewStateKind),
-    ('instance_state', DDS_InstanceStateKind),
-    ('source_timestamp', DDSType.DDS_Time_t),
-    ('instance_handle', DDSType.InstanceHandle_t),
-    ('publication_handle', DDSType.InstanceHandle_t),
-    ('disposed_generation_count', DDS_Long),
-    ('no_writers_generation_count', DDS_Long),
-    ('sample_rank', DDS_Long),
-    ('generation_rank', DDS_Long),
-    ('absolute_generation_rank', DDS_Long),
-    ('valid_data', DDS_Boolean),
-    ('reception_timestamp', DDSType.DDS_Time_t),
-    ('publication_sequence_number', DDS_SequenceNumber_t),
-    ('reception_sequence_number', DDS_SequenceNumber_t),
-    ('publication_virtual_guid', DDS_GUID_t),
-    ('publication_virtual_sequence_number', DDS_SequenceNumber_t),
-    ('original_publication_virtual_guid', DDS_GUID_t),
-    ('original_publication_virtual_sequence_number', DDS_SequenceNumber_t),
-]
-
-
-# class SampleInfo(ctypes.Structure):
-#     _fields_=[('instance_state', ctypes.c_uint32)]
-
-#ctypes.POINTER(DDSType.SampleInfo).instance_state = lambda self: self.contents.instance_state
-
 
 # some types
 enum = ctypes.c_int
@@ -240,9 +209,55 @@ DDS_ViewStateMask = DDS_UnsignedLong
 DDS_InstanceStateMask = DDS_UnsignedLong
 DDS_StatusMask = DDS_UnsignedLong
 
-DDS_InstanceStateKind = ctypes.c_uint32
-
 DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED = 0
+DDS_HANDLE_NIL = DDSType.InstanceHandle_t((ctypes.c_byte * 16)(*[0]*16), 16, False)
+DDS_LENGTH_UNLIMITED = 2^16
+
+DDS_Long = ctypes.c_long
+
+
+DDSType.DDS_Time_t._fields_ = [
+    ('sec', ctypes.c_long),
+    ('nanosec', ctypes.c_ulong),
+]
+
+DDS_SequenceNumber_t = ctypes.c_int
+DDS_SampleStateKind = enum
+DDS_ViewStateKind = enum
+DDS_InstanceStateKind = enum
+DDS_Boolean = ctypes.c_bool
+DDS_GUID_t = ctypes.c_long
+
+DDSType.SampleInfo._fields_ = [
+    ('sample_state', DDS_SampleStateKind),
+    ('view_state', DDS_ViewStateKind),
+    ('instance_state', DDS_InstanceStateKind),
+    ('source_timestamp', DDSType.DDS_Time_t),
+    ('instance_handle', DDSType.InstanceHandle_t),
+    ('publication_handle', DDSType.InstanceHandle_t),
+    ('disposed_generation_count', DDS_Long),
+    ('no_writers_generation_count', DDS_Long),
+    ('sample_rank', DDS_Long),
+    ('generation_rank', DDS_Long),
+    ('absolute_generation_rank', DDS_Long),
+    ('valid_data', DDS_Boolean),
+    ('reception_timestamp', DDSType.DDS_Time_t),
+    ('publication_sequence_number', DDS_SequenceNumber_t),
+    ('reception_sequence_number', DDS_SequenceNumber_t),
+    ('publication_virtual_guid', DDS_GUID_t),
+    ('publication_virtual_sequence_number', DDS_SequenceNumber_t),
+    ('original_publication_virtual_guid', DDS_GUID_t),
+    ('original_publication_virtual_sequence_number', DDS_SequenceNumber_t),
+]
+
+
+# class SampleInfo(ctypes.Structure):
+#     _fields_=[('instance_state', ctypes.c_uint32)]
+
+#ctypes.POINTER(DDSType.SampleInfo).instance_state = lambda self: self.contents.instance_state
+
+
+
 
 DDSType.Listener._fields_ = [
     ('listener_data', ctypes.c_void_p),
@@ -516,9 +531,9 @@ _refs = set()
 
 def unpack_sampleInfo(sampleInfo):
     obj = {}
-    obj['InstanceState']=sampleInfo.contents.instance_state
-    obj['SampleState']=sampleInfo.contents.sample_state
-    obj['ViewState']=sampleInfo.contents.view_state
+    obj['InstanceState']=DDS_InstanceStateKindEnum(sampleInfo.contents.instance_state)
+    obj['SampleState']=DDS_SampleStateKindEnum(sampleInfo.contents.sample_state)
+    obj['ViewState']=DDS_ViewStateKindEnum(sampleInfo.contents.view_state)
     return obj
 
 class Writer(object):
@@ -587,24 +602,23 @@ class Reader(object):
         for cb in self._callbacks.values():
             cb()
 
-    def read(self):
-        return self._receive(False)
+    def read(self, instanceState = DDS_InstanceStateKindEnum.DDS_ANY_INSTANCE_STATE):
+        return self._receive(instanceState, False)
 
-    def take(self):
-        return self._receive(True)
+    def take(self, instanceState = DDS_InstanceStateKindEnum.DDS_ANY_INSTANCE_STATE):
+        return self._receive(instanceState, True)
 
-    def _receive(self, take = True):
+    def _receive(self, instanceState : DDS_InstanceStateKindEnum, take = True):
         """'takeFlag' controls whether read samples stay in the DDS cache (i.e. use DDS Read API) or removed (i.e. use DDS Take API) """
         data_seq = DDSType.DynamicDataSeq()
         DDSFunc.DynamicDataSeq_initialize(data_seq)
         info_seq = DDSType.SampleInfoSeq()
         DDSFunc.SampleInfoSeq_initialize(info_seq)
-
         try:
             if take:
-                self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
+                self._dyn_narrowed_reader.take(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), instanceState.value)
             else:
-                self._dyn_narrowed_reader.read(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), get('ANY_INSTANCE_STATE', DDS_InstanceStateMask))
+                self._dyn_narrowed_reader.read(ctypes.byref(data_seq), ctypes.byref(info_seq), DDS_LENGTH_UNLIMITED, get('ANY_SAMPLE_STATE', DDS_SampleStateMask), get('ANY_VIEW_STATE', DDS_ViewStateMask), instanceState.value)
         except Error as e:
             if str(e) == 'no data':
                 return []
@@ -643,3 +657,7 @@ class DDS(object):
         """Retrieves the DDS DataReader according to its full name (e.g. MySubscriber::HelloWorldReader"""
         res = Reader(self,cstring(datareader_full_name))
         return res
+
+
+
+
