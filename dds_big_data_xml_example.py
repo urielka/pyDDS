@@ -14,11 +14,13 @@ if role == PUB_ROLE:
     HelloBigWorldWriter = participant.lookup_datawriter_by_name('MyBigPublisher::HelloBigWorldWriter')
     seq = 0
     data = "x" * 10000000 #10MB
+    file = open("pic.png", "rb")
+    buffer = file.read()
     while True:
         seq+=1
 
         print ('writing sequence#', seq)
-        msg = {'seq':seq , 'data':data}
+        msg = {'seq':seq , 'data':"x" , 'rawBytes':buffer}
         HelloBigWorldWriter.write(msg)
         time.sleep(3)
 
