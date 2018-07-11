@@ -33,6 +33,7 @@ RTI Data Distribution Service Deployment
     <struct name="HelloBigWorld">
       <member name="seq"   type="long"/>
       <member name="data" type="string"  stringMaxLength="100000000"/>
+      <member name="rawBytes" sequenceMaxLength="943718400" type="byte"/>
     </struct>
   </types>
 
@@ -79,7 +80,13 @@ RTI Data Distribution Service Deployment
       <publisher name="MyBigPublisher">
         <data_writer name="HelloBigWorldWriter"
                      topic_ref="HelloBigWorldTopic">
-          <datawriter_qos base_name="BuiltinQosLibExp::Generic.StrictReliable.LargeData"/>
+          <datawriter_qos base_name="BuiltinQosLibExp::Generic.StrictReliable.LargeData">
+            <protocol>
+              <rtps_reliable_writer>>
+                <heartbeats_per_max_samples>1</heartbeats_per_max_samples>
+              </rtps_reliable_writer>
+            </protocol>
+          </datawriter_qos>
         </data_writer>
       </publisher>
     </domain_participant>

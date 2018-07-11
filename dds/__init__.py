@@ -189,6 +189,7 @@ DDS_Short = ctypes.c_int16
 DDS_UnsignedShort = ctypes.c_uint16
 DDS_Long = ctypes.c_int32
 DDS_UnsignedLong = ctypes.c_uint32
+DDS_UnsignedLong_p = ctypes.POINTER(DDS_UnsignedLong)
 DDS_LongLong = ctypes.c_int64
 DDS_UnsignedLongLong = ctypes.c_uint64
 DDS_Float = ctypes.c_float
@@ -382,6 +383,8 @@ list(map(_define_func, [
     ('DynamicData_get_wstring', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.c_wchar_p), ctypes.POINTER(DDS_UnsignedLong), ctypes.c_char_p, DDS_DynamicDataMemberId]),
     ('DynamicData_set_string', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, ctypes.c_char_p]),
     ('DynamicData_set_wstring', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, ctypes.c_wchar_p]),
+    ('DynamicData_set_octet_array', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId, DDS_UnsignedLong ,ctypes.c_char_p]),
+    ('DynamicData_get_octet_array', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, ctypes.POINTER(DDS_UnsignedLong), ctypes.c_char_p, DDS_DynamicDataMemberId]),
     ('DynamicData_bind_complex_member', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData), ctypes.c_char_p, DDS_DynamicDataMemberId]),
     ('DynamicData_unbind_complex_member', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.DynamicData)]),
     ('DynamicData_get_member_type', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(ctypes.POINTER(DDSType.TypeCode)), ctypes.c_char_p, DDS_DynamicDataMemberId]),
@@ -389,7 +392,7 @@ list(map(_define_func, [
     ('DynamicData_get_type', check_null, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.DynamicData)]),
     ('DynamicData_get_type_kind', None, DDS_TCKind, [ctypes.POINTER(DDSType.DynamicData)]),
     ('DynamicData_delete', None, None, [ctypes.POINTER(DDSType.DynamicData)]),
-    
+    ('DynamicData_clear_all_members', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicData)]),
     ('DynamicDataWriter_narrow', check_null, ctypes.POINTER(DDSType.DynamicDataWriter), [ctypes.POINTER(DDSType.DataWriter)]),
     ('DynamicDataWriter_write', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.InstanceHandle_t)]),
     ('DynamicDataWriter_dispose', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataWriter), ctypes.POINTER(DDSType.DynamicData), ctypes.POINTER(DDSType.InstanceHandle_t)]),
@@ -402,6 +405,7 @@ list(map(_define_func, [
     
     ('TypeCode_name', check_ex, ctypes.c_char_p, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     ('TypeCode_kind', check_ex, DDS_TCKind, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
+    ('TypeCode_content_type', check_ex, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     ('TypeCode_member_count', check_ex, DDS_UnsignedLong, [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDS_ExceptionCode_t)]),
     ('TypeCode_member_name', check_ex, ctypes.c_char_p, [ctypes.POINTER(DDSType.TypeCode), DDS_UnsignedLong, ctypes.POINTER(DDS_ExceptionCode_t)]),
     ('TypeCode_member_type', check_ex, ctypes.POINTER(DDSType.TypeCode), [ctypes.POINTER(DDSType.TypeCode), DDS_UnsignedLong, ctypes.POINTER(DDS_ExceptionCode_t)]),
@@ -432,6 +436,14 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_M
             raise ValueError('%r not in range [%r, %r)' % (obj, bounds[0], bounds[1]))
         getattr(dd, 'set_' + func_name)(member_name, member_id, obj)
     elif kind == TCKind.STRUCT or kind == TCKind.SEQUENCE or kind == TCKind.ARRAY:
+        #TODO: move this to its own generic implementation of sequnece writing
+        if kind == TCKind.SEQUENCE:
+            content_type = tc.content_type(ex())
+            content_kind = content_type.kind(ex())
+            if content_kind == TCKind.OCTET and type(obj) is bytes:
+                dd.set_octet_array(member_name, member_id, len(obj), obj)
+                return
+
         inner = DDSFunc.DynamicData_new(None, get('DYNAMIC_DATA_PROPERTY_DEFAULT', DDSType.DynamicDataProperty_t))
         try:
             dd.bind_complex_member(inner, member_name, member_id)
@@ -453,6 +465,7 @@ def write_into_dd_member(obj, dd, member_name=None, member_id=DDS_DYNAMIC_DATA_M
         raise NotImplementedError(kind)
 
 def write_into_dd(obj, dd):
+    obj_type = dd.get_type()
     kind = dd.get_type_kind()
     if kind == TCKind.STRUCT:
         assert isinstance(obj, dict)
@@ -462,7 +475,7 @@ def write_into_dd(obj, dd):
             if name in obj:
                 write_into_dd_member(obj[name], dd, member_name=name)
     elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
-        # assert isinstance(obj, list)
+        assert isinstance(obj, list)
         for i, x in enumerate(obj):
             write_into_dd_member(x, dd, member_id=i+1)
     else:
@@ -483,6 +496,19 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
         try:
             dd.bind_complex_member(inner, member_name, member_id)
             try:
+                #TODO: move this to its own generic implementation of sequnece unpacking
+                if kind == TCKind.SEQUENCE:
+                    content_type = tc.content_type(ex())
+                    content_kind = content_type.kind(ex())
+                    if content_kind == TCKind.OCTET:
+                        data_len = inner.get_member_count()
+                        length = DDS_UnsignedLong(data_len)
+                        length_p = ctypes.cast(ctypes.addressof(length), DDS_UnsignedLong_p)
+                        obj = ctypes.create_string_buffer(data_len)
+                        dd.get_octet_array(obj, length_p, member_name, member_id)
+                        # TODO: should we assert here that data read is the correct size?
+                        return obj.raw
+
                 return unpack_dd(inner)
             finally:
                 dd.unbind_complex_member(inner)
@@ -551,6 +577,7 @@ class Writer(object):
         pass
     
     def write(self, msg):
+        self._dynamicData.clear_all_members()
         write_into_dd(msg, self._dynamicData)
         self._dyn_narrowed_writer.write(self._dynamicData, DDS_HANDLE_NIL)
 
