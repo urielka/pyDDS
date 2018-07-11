@@ -48,12 +48,13 @@ if not _ddsc_lib:
 # the following functions deal with this conversion
 if sys.version_info >= (3, 0):
     def cstring(s):
-        if isinstance(s, str):
-            return bytes(s, 'ascii')
-        elif isinstance(s ,bytes):
-            return s
-        else:
-            raise ArgumentException("%s is not a string" % s)
+        if s:
+            if isinstance(s, str):
+                return bytes(s, 'ascii')
+            elif isinstance(s ,bytes):
+                return s
+            else:
+                raise ArgumentException("%s is not a string" % s)
 
     def pstring(b):
         return str(b, 'ascii')
@@ -461,7 +462,7 @@ def write_into_dd(obj, dd):
             if name in obj:
                 write_into_dd_member(obj[name], dd, member_name=name)
     elif kind == TCKind.ARRAY or kind == TCKind.SEQUENCE:
-        assert isinstance(obj, list)
+        # assert isinstance(obj, list)
         for i, x in enumerate(obj):
             write_into_dd_member(x, dd, member_id=i+1)
     else:
