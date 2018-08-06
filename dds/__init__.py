@@ -213,7 +213,7 @@ DDS_StatusMask = DDS_UnsignedLong
 
 DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED = 0
 DDS_HANDLE_NIL = DDSType.InstanceHandle_t((ctypes.c_byte * 16)(*[0]*16), 16, False)
-DDS_LENGTH_UNLIMITED = 2^16
+DDS_LENGTH_UNLIMITED = 2**16-1
 
 DDS_Long = ctypes.c_long
 
