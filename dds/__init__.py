@@ -196,6 +196,7 @@ DDS_Float = ctypes.c_float
 DDS_Double = ctypes.c_double
 DDS_LongDouble = ctypes.c_longdouble
 DDS_Boolean = ctypes.c_bool
+DDS_BUILTIN_TOPIC_KEY_TYPE_NATIVE = ctypes.c_uint32
 DDS_Enum = DDS_UnsignedLong
 
 DDS_DynamicDataMemberId = DDS_Long
@@ -213,7 +214,10 @@ DDS_StatusMask = DDS_UnsignedLong
 
 DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED = 0
 DDS_HANDLE_NIL = DDSType.InstanceHandle_t((ctypes.c_byte * 16)(*[0]*16), 16, False)
-DDS_LENGTH_UNLIMITED = 2^16
+DDS_LENGTH_UNLIMITED = 2**16-1
+DDS_BUILTIN_TOPIC_KEY_TYPE_NATIVE_LENGTH = 4
+DDS_VENDOR_ID_LENGTH_MAX = 2
+DDS_LOCATOR_ADDRESS_LENGTH_MAX = 16
 
 DDS_Long = ctypes.c_long
 
@@ -252,14 +256,111 @@ DDSType.SampleInfo._fields_ = [
     ('original_publication_virtual_sequence_number', DDS_SequenceNumber_t),
 ]
 
+DDSType.BuiltinTopicKey_t._fields_ = [
+    ('value', DDS_BUILTIN_TOPIC_KEY_TYPE_NATIVE * DDS_BUILTIN_TOPIC_KEY_TYPE_NATIVE_LENGTH)
+]
 
-# class SampleInfo(ctypes.Structure):
-#     _fields_=[('instance_state', ctypes.c_uint32)]
+DDSType.SeqElementTypeAllocationParams_t._fields_ = [
+    ("allocate_pointers", DDS_Boolean),
+    ("allocate_optional_members", DDS_Boolean),
+    ("allocate_memory", DDS_Boolean)
+]
 
-#ctypes.POINTER(DDSType.SampleInfo).instance_state = lambda self: self.contents.instance_state
+DDSType.SeqElementTypeDeallocationParams_t._fields_ = [
+    ("delete_pointers", DDS_Boolean),
+    ("delete_optional_members", DDS_Boolean)
+]
+
+def TSeq(name, T):
+    t = getattr(DDSType, name)
+    t._fields_ = [
+        ("_owned", DDS_Boolean),
+        ("_contiguous_buffer", ctypes.POINTER(T)),
+        ("_discontiguous_buffer", ctypes.POINTER(ctypes.POINTER(T))),
+        ("_maximum", DDS_UnsignedLong),
+        ("_length", DDS_UnsignedLong),
+        ("_sequence_init", DDS_Long),
+        ("_read_token1", ctypes.c_void_p),
+        ("_read_token2", ctypes.c_void_p),
+        ("_elementAllocParams", DDSType.SeqElementTypeAllocationParams_t),
+        ("_elementDeallocParams", DDSType.SeqElementTypeDeallocationParams_t),
+        ("_absolute_maximum", DDS_UnsignedLong)
+    ]
+    return t
+
+DDS_OctetSeq = TSeq("OctetSeq", DDS_Octet)
+
+DDSType.UserDataQosPolicy._fields_ = [
+    ("value", DDS_OctetSeq)
+]
+
+DDSType.Property_t._fields_ = [
+    ("name", ctypes.c_char_p),
+    ("value", ctypes.c_char_p),
+    ("propagate", DDS_Boolean)
+]
+
+DDS_PropertySeq = TSeq("PropertySeq", DDSType.Property_t)
+
+DDSType.DDS_PropertyQosPolicy._fields_ = [
+    ("value", DDS_PropertySeq)
+]
+
+DDSType.ProtocolVersion_t._fields_ = [
+    ("major", DDS_Octet),
+    ("minor", DDS_Octet)
+]
 
 
+DDSType.VendorId_t._fields_ = [
+    ("vendorId", DDS_Octet * DDS_VENDOR_ID_LENGTH_MAX)
+]
 
+DDS_EncapsulationId_t = DDS_UnsignedShort
+DDS_EncapsulationIdSeq = TSeq("EncapsulationIdSeq", DDS_EncapsulationId_t)
+
+DDSType.Locator_t._fields_ = [
+    ("kind", DDS_Long),
+    ("port", DDS_UnsignedLong),
+    ("address", DDS_Octet * DDS_LOCATOR_ADDRESS_LENGTH_MAX),
+    ("encapsulations", DDS_EncapsulationIdSeq)
+]
+
+DDS_LocatorSeq = TSeq("LocatorSeq", DDSType.Locator_t)
+
+DDSType.ProductVersion_t._fields_ = [
+    ("major", DDS_Char),
+    ("minor", DDS_Char),
+    ("release", DDS_Char),
+    ("revision", DDS_Char)
+] 
+
+DDSType.EntityNameQosPolicy._fields_ = [
+    ("name", ctypes.c_char_p),
+    ("role_name", ctypes.c_char_p)
+]
+
+NDDS_Transport_ClassId_t = ctypes.c_int32
+
+DDSType.TransportInfo_t._fields_ = [
+    ("class_id", NDDS_Transport_ClassId_t),
+    ("message_size_max", DDS_Long)
+]
+
+DDS_TransportInfoSeq = TSeq("TransportInfoSeq", DDSType.TransportInfo_t)
+
+DDSType.ParticipantBuiltinTopicData._fields_ = [
+    ("key", DDSType.BuiltinTopicKey_t),
+    ("user_data", DDSType.UserDataQosPolicy),
+    ("property", DDSType.PropertyQosPolicy),
+    ("rtps_protocol_version", DDSType.ProtocolVersion_t),
+    ("rtps_vendor_id", DDSType.VendorId_t),
+    ("dds_builtin_endpoints", DDS_UnsignedLong),
+    ("default_unicast_locators", DDS_LocatorSeq),
+    ("product_version", DDSType.ProductVersion_t),
+    ("participant_name", DDSType.EntityNameQosPolicy), 
+    ("transport_info", DDS_TransportInfoSeq)
+]
 
 DDSType.Listener._fields_ = [
     ('listener_data', ctypes.c_void_p),
@@ -360,9 +461,8 @@ list(map(_define_func, [
 
 
     ('DataReader_set_listener', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DataReader), ctypes.POINTER(DDSType.DataReaderListener), DDS_StatusMask]),
-    
+    ('DataReader_get_matched_publication_participant_data', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DataReader),ctypes.POINTER(DDSType.ParticipantBuiltinTopicData), ctypes.POINTER(DDSType.InstanceHandle_t)]),
     ('TopicDescription_get_type_name',check_null, ctypes.c_char_p, [ctypes.POINTER(DDSType.Topic)]),
-
     ('DynamicDataTypeSupport_new', check_null, ctypes.POINTER(DDSType.DynamicDataTypeSupport), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDSType.DynamicDataTypeProperty_t)]),
     ('DynamicDataTypeSupport_delete', None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
     ('DynamicDataTypeSupport_register_type', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
@@ -556,13 +656,6 @@ _outside_refs = set()
 _refs = set()
 
 
-def unpack_sampleInfo(sampleInfo):
-    obj = {}
-    obj['InstanceState']=DDS_InstanceStateKindEnum(sampleInfo.contents.instance_state)
-    obj['SampleState']=DDS_SampleStateKindEnum(sampleInfo.contents.sample_state)
-    obj['ViewState']=DDS_ViewStateKindEnum(sampleInfo.contents.view_state)
-    return obj
-
 class Writer(object):
     def __init__(self, dds, name):
         self._dds = weakref.ref(dds)
@@ -656,13 +749,37 @@ class Reader(object):
         samplesList = []
         try:
             for i in range(data_seq_length):
-                sampleInfo = unpack_sampleInfo(info_seq.get_reference(i))
+                sampleInfo = self._unpack_sampleInfo(info_seq.get_reference(i))
                 sampleData = unpack_dd(data_seq.get_reference(i))
                 sampleDict = {'sampleInfo': sampleInfo, 'sampleData': sampleData}            
                 samplesList.append(sampleDict)
             return samplesList
         finally:
             self._dyn_narrowed_reader.return_loan(ctypes.byref(data_seq), ctypes.byref(info_seq))
+
+    def _unpack_sampleInfo(self, sampleInfo):
+        """
+        sampleInfo == info #struct DDS_SampleInfo *info = DDS_SampleInfoSeq_get_reference(&info_seq, i);
+                    DDS_ParticipantBuiltinTopicData ParData = DDS_ParticipantBuiltinTopicData_INITIALIZER;
+                    DDS_DataReader_get_matched_publication_participant_data(self._reader, &ParData, &(info->publication_handle));
+                    struct DDS_LocatorSeq locators = ParData.default_unicast_locators;
+                    for (int locatorIter = 0; locatorIter < locators._length; locatorIter++) {
+                            struct DDS_Locator_t locator = DDS_LocatorSeq_get(&locators, locatorIter);
+                            if (locator.kind == DDS_LOCATOR_KIND_UDPv4) {
+                                    for (int i = (DDS_LOCATOR_ADDRESS_LENGTH_MAX - 4); i < DDS_LOCATOR_ADDRESS_LENGTH_MAX; i++) {
+                                            printf("%02X", locator.address[i]);//provides an hexadecimal representation of IP
+                                    }
+                            }
+                    }
+        """
+        par_data = DDSType.ParticipantBuiltinTopicData()
+        self._reader.get_matched_publication_participant_data(ctypes.byref(par_data), ctypes.byref(sampleInfo.contents.publication_handle))
+
+        obj = {}
+        obj['InstanceState']=DDS_InstanceStateKindEnum(sampleInfo.contents.instance_state)
+        obj['SampleState']=DDS_SampleStateKindEnum(sampleInfo.contents.sample_state)
+        obj['ViewState']=DDS_ViewStateKindEnum(sampleInfo.contents.view_state)
+        return obj
         
 class DDS(object):
     """Creating application via configuration file name (i.e. XML Application Creation)"""
