@@ -161,7 +161,7 @@ DDSType.Topic._fields_ = [
 ]
 ctypes.POINTER(DDSType.Topic).as_topicdescription = lambda self: self.contents._as_TopicDescription
 
-DDSType.DynamicDataSeq._fields_ = DDSType.SampleInfoSeq._fields_ = [
+DDSType.InstanceHandleSeq._fields_ = DDSType.DynamicDataSeq._fields_ = DDSType.SampleInfoSeq._fields_ = [
     ('_owned', ctypes.c_bool),
     ('_contiguous_buffer', ctypes.c_void_p),
     ('_discontiguous_buffer', ctypes.c_void_p),
@@ -377,6 +377,8 @@ DDSType.DataReaderListener._fields_ = [
     ('on_sample_lost', ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.POINTER(DDSType.DataReader), ctypes.POINTER(DDSType.SampleLostStatus))),
 ]
 
+DDS_InstanceHandleSeq = DDSType.InstanceHandleSeq #TSeq("InstanceHandleSeq", DDSType.InstanceHandle_t)
+
 class TCKind(object):
     NULL = 0
     SHORT = 1
@@ -462,7 +464,10 @@ list(map(_define_func, [
 
     ('DataReader_set_listener', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DataReader), ctypes.POINTER(DDSType.DataReaderListener), DDS_StatusMask]),
     ('DataReader_get_matched_publication_participant_data', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DataReader),ctypes.POINTER(DDSType.ParticipantBuiltinTopicData), ctypes.POINTER(DDSType.InstanceHandle_t)]),
+    ('DataReader_get_matched_publications', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DataReader), ctypes.POINTER(DDS_InstanceHandleSeq)]),   
+
     ('TopicDescription_get_type_name',check_null, ctypes.c_char_p, [ctypes.POINTER(DDSType.Topic)]),
+
     ('DynamicDataTypeSupport_new', check_null, ctypes.POINTER(DDSType.DynamicDataTypeSupport), [ctypes.POINTER(DDSType.TypeCode), ctypes.POINTER(DDSType.DynamicDataTypeProperty_t)]),
     ('DynamicDataTypeSupport_delete', None, None, [ctypes.POINTER(DDSType.DynamicDataTypeSupport)]),
     ('DynamicDataTypeSupport_register_type', check_code, DDS_ReturnCode_t, [ctypes.POINTER(DDSType.DynamicDataTypeSupport), ctypes.POINTER(DDSType.DomainParticipant), ctypes.c_char_p]),
@@ -517,6 +522,12 @@ list(map(_define_func, [
     ('SampleInfoSeq_initialize', check_true, DDS_Boolean, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
     ('SampleInfoSeq_get_length', None, DDS_Long, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
     ('SampleInfoSeq_get_reference', check_null, ctypes.POINTER(DDSType.SampleInfo), [ctypes.POINTER(DDSType.SampleInfoSeq), DDS_Long]),
+
+    ('InstanceHandleSeq_initialize', check_true, DDS_Boolean, [ctypes.POINTER(DDS_InstanceHandleSeq)]),
+    ('InstanceHandleSeq_get_length', None, DDS_Long, [ctypes.POINTER(DDS_InstanceHandleSeq)]),
+    ('InstanceHandleSeq_get_reference', check_null, ctypes.POINTER(DDSType.InstanceHandle_t), [ctypes.POINTER(DDS_InstanceHandleSeq), DDS_Long]),
+
+    ('ParticipantBuiltinTopicData_initialize_ex', None, None, [ctypes.POINTER(DDSType.ParticipantBuiltinTopicData), DDS_Boolean, DDS_Boolean]),
     
     ('String_free', None, None, [ctypes.c_char_p]),
     
@@ -771,9 +782,30 @@ class Reader(object):
                                     }
                             }
                     }
-        """
+        """ 
+
+        handle_seq = DDS_InstanceHandleSeq()
+        DDSFunc.InstanceHandleSeq_initialize(handle_seq)
+        length = DDSFunc.InstanceHandleSeq_get_length(handle_seq)
+        self._reader.get_matched_publications(handle_seq)
+
+        instance_handle = DDSFunc.InstanceHandleSeq_get_reference(handle_seq, 0)
+        instance_handle_hash = list(instance_handle[0].keyHash_value)
+        publication_handle_hash = list(sampleInfo.contents.publication_handle.keyHash_value)
+        print(instance_handle_hash, len(instance_handle_hash))
+        print(publication_handle_hash, len(publication_handle_hash))
+        print(sampleInfo.contents.valid_data)
+
         par_data = DDSType.ParticipantBuiltinTopicData()
-        self._reader.get_matched_publication_participant_data(ctypes.byref(par_data), ctypes.byref(sampleInfo.contents.publication_handle))
+        DDSFunc.ParticipantBuiltinTopicData_initialize_ex(par_data, True, True)
+        print("Protocol version", par_data.product_version.major, par_data.product_version.minor)
+
+        handle_to_check = instance_handle # ctypes.byref(sampleInfo.contents.publication_handle)
+        self._reader.get_matched_publication_participant_data(ctypes.byref(par_data), handle_to_check)
+        print("Protocol version", par_data.product_version.major, par_data.product_version.minor)
+        print("Locators length: %s" % par_data.default_unicast_locators._length)
+
+
 
         obj = {}
         obj['InstanceState']=DDS_InstanceStateKindEnum(sampleInfo.contents.instance_state)
