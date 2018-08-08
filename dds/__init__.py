@@ -173,12 +173,6 @@ DDSType.InstanceHandleSeq._fields_ = DDSType.DynamicDataSeq._fields_ = DDSType.S
     ('_elementPointersAllocation', ctypes.c_bool),
 ]
 
-DDSType.InstanceHandle_t._fields_ = [
-    ('keyHash_value', ctypes.c_byte * 16),
-    ('keyHash_length', ctypes.c_uint32),
-    ('isValid', ctypes.c_int),
-]
-
 # some types
 enum = ctypes.c_int
 
@@ -188,7 +182,7 @@ DDS_Octet = ctypes.c_ubyte
 DDS_Short = ctypes.c_int16
 DDS_UnsignedShort = ctypes.c_uint16
 DDS_Long = ctypes.c_int32
-DDS_UnsignedLong = ctypes.c_uint32
+DDS_UnsignedLong = ctypes.c_uint
 DDS_UnsignedLong_p = ctypes.POINTER(DDS_UnsignedLong)
 DDS_LongLong = ctypes.c_int64
 DDS_UnsignedLongLong = ctypes.c_uint64
@@ -196,7 +190,7 @@ DDS_Float = ctypes.c_float
 DDS_Double = ctypes.c_double
 DDS_LongDouble = ctypes.c_longdouble
 DDS_Boolean = ctypes.c_bool
-DDS_BUILTIN_TOPIC_KEY_TYPE_NATIVE = ctypes.c_uint32
+DDS_BUILTIN_TOPIC_KEY_TYPE_NATIVE = ctypes.c_uint
 DDS_Enum = DDS_UnsignedLong
 
 DDS_DynamicDataMemberId = DDS_Long
@@ -204,7 +198,7 @@ DDS_ReturnCode_t = enum
 DDS_ExceptionCode_t = enum
 def ex():
     return ctypes.byref(DDS_ExceptionCode_t())
-DDS_DomainId_t = ctypes.c_int32
+DDS_DomainId_t = ctypes.c_int
 DDS_TCKind = enum
 
 DDS_SampleStateMask = DDS_UnsignedLong
@@ -213,26 +207,36 @@ DDS_InstanceStateMask = DDS_UnsignedLong
 DDS_StatusMask = DDS_UnsignedLong
 
 DDS_DYNAMIC_DATA_MEMBER_ID_UNSPECIFIED = 0
-DDS_HANDLE_NIL = DDSType.InstanceHandle_t((ctypes.c_byte * 16)(*[0]*16), 16, False)
 DDS_LENGTH_UNLIMITED = 2**16-1
 DDS_BUILTIN_TOPIC_KEY_TYPE_NATIVE_LENGTH = 4
 DDS_VENDOR_ID_LENGTH_MAX = 2
 DDS_LOCATOR_ADDRESS_LENGTH_MAX = 16
-
 DDS_Long = ctypes.c_long
-
-
-DDSType.DDS_Time_t._fields_ = [
-    ('sec', ctypes.c_long),
-    ('nanosec', ctypes.c_ulong),
-]
-
 DDS_SequenceNumber_t = ctypes.c_int
 DDS_SampleStateKind = enum
 DDS_ViewStateKind = enum
 DDS_InstanceStateKind = enum
 DDS_Boolean = ctypes.c_bool
 DDS_GUID_t = ctypes.c_long
+
+
+DDSType.DDS_Time_t._fields_ = [
+    ('sec', ctypes.c_int),
+    ('nanosec', ctypes.c_uint),
+]
+
+DDSType.keyHash._fields_ = [
+    ('value', ctypes.c_ubyte * 16),
+    ('length', ctypes.c_uint32),
+]
+
+DDSType.InstanceHandle_t._fields_ = [
+    ('keyHash', DDSType.keyHash),
+    ('isValid', ctypes.c_int),
+]
+
+DDS_HANDLE_NIL = DDSType.InstanceHandle_t(DDSType.keyHash((ctypes.c_ubyte * 16)(*[0]*16), 16), False)
+
 
 DDSType.SampleInfo._fields_ = [
     ('sample_state', DDS_SampleStateKind),
@@ -340,12 +344,17 @@ DDSType.EntityNameQosPolicy._fields_ = [
     ("role_name", ctypes.c_char_p)
 ]
 
-NDDS_Transport_ClassId_t = ctypes.c_int32
+NDDS_Transport_ClassId_t = ctypes.c_int
 
 DDSType.TransportInfo_t._fields_ = [
     ("class_id", NDDS_Transport_ClassId_t),
     ("message_size_max", DDS_Long)
 ]
+
+DDSType.DDS_ServiceQosPolicy._fields_ = [
+    ("kind", enum)
+]
+
 
 DDS_TransportInfoSeq = TSeq("TransportInfoSeq", DDSType.TransportInfo_t)
 
@@ -356,10 +365,18 @@ DDSType.ParticipantBuiltinTopicData._fields_ = [
     ("rtps_protocol_version", DDSType.ProtocolVersion_t),
     ("rtps_vendor_id", DDSType.VendorId_t),
     ("dds_builtin_endpoints", DDS_UnsignedLong),
+    ("metatraffic_unicast_locators", DDS_LocatorSeq),
+    ("metatraffic_multicast_locators", DDS_LocatorSeq),
     ("default_unicast_locators", DDS_LocatorSeq),
+    ("lease_duration", DDSType.DDS_Time_t),
     ("product_version", DDSType.ProductVersion_t),
+    ("plugin_promiscuity_kind", enum),
     ("participant_name", DDSType.EntityNameQosPolicy), 
-    ("transport_info", DDS_TransportInfoSeq)
+    ("domain_id", DDS_DomainId_t),
+    ("transport_info", DDS_TransportInfoSeq),
+    ("reachability_lease_duration", DDSType.DDS_Time_t),
+    ("vendor_builtin_endpoints", DDS_UnsignedLong),
+    ("service", DDSType.ServiceQosPolicy),
 ]
 
 DDSType.Listener._fields_ = [
@@ -522,13 +539,15 @@ list(map(_define_func, [
     ('SampleInfoSeq_initialize', check_true, DDS_Boolean, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
     ('SampleInfoSeq_get_length', None, DDS_Long, [ctypes.POINTER(DDSType.SampleInfoSeq)]),
     ('SampleInfoSeq_get_reference', check_null, ctypes.POINTER(DDSType.SampleInfo), [ctypes.POINTER(DDSType.SampleInfoSeq), DDS_Long]),
-
+    
+    ('ParticipantBuiltinTopicData_initialize_ex', None, None, [ctypes.POINTER(DDSType.ParticipantBuiltinTopicData), DDS_Boolean, DDS_Boolean]),
+    
     ('InstanceHandleSeq_initialize', check_true, DDS_Boolean, [ctypes.POINTER(DDS_InstanceHandleSeq)]),
     ('InstanceHandleSeq_get_length', None, DDS_Long, [ctypes.POINTER(DDS_InstanceHandleSeq)]),
     ('InstanceHandleSeq_get_reference', check_null, ctypes.POINTER(DDSType.InstanceHandle_t), [ctypes.POINTER(DDS_InstanceHandleSeq), DDS_Long]),
 
-    ('ParticipantBuiltinTopicData_initialize_ex', None, None, [ctypes.POINTER(DDSType.ParticipantBuiltinTopicData), DDS_Boolean, DDS_Boolean]),
-    
+    ('LocatorSeq_get_reference', check_null, ctypes.POINTER(DDSType.Locator_t), [ctypes.POINTER(DDS_LocatorSeq), DDS_Long]),
+
     ('String_free', None, None, [ctypes.c_char_p]),
     
     ('Wstring_free', None, None, [ctypes.c_wchar_p]),
@@ -783,28 +802,17 @@ class Reader(object):
                             }
                     }
         """ 
+      
 
-        handle_seq = DDS_InstanceHandleSeq()
-        DDSFunc.InstanceHandleSeq_initialize(handle_seq)
-        length = DDSFunc.InstanceHandleSeq_get_length(handle_seq)
-        self._reader.get_matched_publications(handle_seq)
-
-        instance_handle = DDSFunc.InstanceHandleSeq_get_reference(handle_seq, 0)
-        instance_handle_hash = list(instance_handle[0].keyHash_value)
-        publication_handle_hash = list(sampleInfo.contents.publication_handle.keyHash_value)
-        print(instance_handle_hash, len(instance_handle_hash))
-        print(publication_handle_hash, len(publication_handle_hash))
-        print(sampleInfo.contents.valid_data)
 
         par_data = DDSType.ParticipantBuiltinTopicData()
         DDSFunc.ParticipantBuiltinTopicData_initialize_ex(par_data, True, True)
-        print("Protocol version", par_data.product_version.major, par_data.product_version.minor)
-
-        handle_to_check = instance_handle # ctypes.byref(sampleInfo.contents.publication_handle)
-        self._reader.get_matched_publication_participant_data(ctypes.byref(par_data), handle_to_check)
-        print("Protocol version", par_data.product_version.major, par_data.product_version.minor)
+        self._reader.get_matched_publication_participant_data(ctypes.byref(par_data), ctypes.byref(sampleInfo.contents.publication_handle))
         print("Locators length: %s" % par_data.default_unicast_locators._length)
-
+        for i in range(0, par_data.default_unicast_locators._length):
+            locator = par_data.default_unicast_locators.get_reference(i)
+            # TODO: need to get a mapping to kind
+            print(locator.contents.kind, list(locator.contents.address))
 
 
         obj = {}
