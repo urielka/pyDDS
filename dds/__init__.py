@@ -530,7 +530,7 @@ def unpack_dd_member(dd, member_name=None, member_id=DDS_DYNAMIC_DATA_MEMBER_ID_
             DDSFunc.Wstring_free(inner)
     elif kind == TCKind.ENUM:
         inner = DDS_Long()
-        dd.get_long(ctypes.byref(inner), member_name, member_id)
+        dd.get_longlong(ctypes.byref(inner), member_name, member_id)
         return inner.value
     else:
         raise NotImplementedError(kind)
