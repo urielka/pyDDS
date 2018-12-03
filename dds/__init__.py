@@ -16,15 +16,15 @@ rti_arch = {
     'aarch64': '<TODO add here arm prefix>'
 }[cpu_arch]
 
-connector_so = os.path.join(CURRENT_DIR, {
-    'x86_64': 'librtiddsconnector-x64.so',
-    'aarch64': 'librtiddsconnector-armv8.so'
+embedded_so = os.path.join(CURRENT_DIR, {
+    'x86_64': 'x64/libnddsc.so',
+    'aarch64': 'armv8/libnddsc.so'
 }[cpu_arch])
 
 _ddsc_lib = None
 
-if os.path.isfile(connector_so):
-    _ddsc_lib = ctypes.CDLL(connector_so) 
+if os.path.isfile(embedded_so):
+    _ddsc_lib = ctypes.CDLL(embedded_so) 
 
 if not _ddsc_lib:
     NDDSHOME = os.environ['NDDSHOME']
